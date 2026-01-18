@@ -1,0 +1,68 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String          @id @default(uuid())
+  email         String          @unique
+  displayName   String?
+  imageUrl     String?
+  password      String
+  publicKey     String
+  code          String          @unique
+  lastSeen      DateTime        @default(now())
+  sentMessages  Message[]
+  statusUpdates MessageStatus[]
+  participants  Participant[]
+}
+
+model Conversation {
+  id           String        @id @default(uuid())
+  type         ChatType      @default(DIRECT)
+  name         String?
+  imageUrl    String?
+  createdAt    DateTime      @default(now())
+  messages     Message[]
+  participants Participant[]
+}
+
+model Participant {
+  id             String       @id @default(uuid())
+  userId         String
+  conversationId String
+  isAdmin        Boolean      @default(false)
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  user           User         @relation(fields: [userId], references: [id])
+}
+
+model Message {
+  id             String          @id @default(uuid())
+  conversationId String
+  senderId       String
+  content        String
+  type           String          @default("text")
+  createdAt      DateTime        @default(now())
+  conversation   Conversation    @relation(fields: [conversationId], references: [id])
+  sender         User            @relation(fields: [senderId], references: [id])
+  statuses       MessageStatus[]
+}
+
+model MessageStatus {
+  id        String   @id @default(uuid())
+  messageId String
+  userId    String
+  status    String   @default("delivered")
+  updatedAt DateTime @updatedAt
+  message   Message  @relation(fields: [messageId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+enum ChatType {
+  DIRECT
+  GROUP
+}

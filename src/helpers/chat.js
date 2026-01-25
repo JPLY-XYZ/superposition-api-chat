@@ -3,7 +3,6 @@ import prisma from "../../lib/prisma.js";
 
 //in {participantIds}, out { conversation } == { id, type, name, imageUrl, createdAt, otherUsers, participantIds, lastMessageText }
 const findPrivateChat = async (participantIds) => {
-  // Aseguramos que hay 2 IDs
   if (!participantIds || participantIds.length < 2) return null;
 
   const [userA, userB] = participantIds;
@@ -17,7 +16,10 @@ const findPrivateChat = async (participantIds) => {
       ]
     },
     include: {
-      participants: true,
+      // CORRECCIÓN 1: Incluir la relación 'user' anidada
+      participants: {
+        include: { user: true }
+      },
       messages: {
         take: 1,
         orderBy: { createdAt: 'desc' }
@@ -25,17 +27,20 @@ const findPrivateChat = async (participantIds) => {
     },
   });
 
+  // CORRECCIÓN 2: Verificar si existe el chat antes de acceder a sus propiedades
+  if (!chat) return null;
+
   return {
     id: chat.id,
     type: chat.type,
-    name: chat.type === 'DIRECT' ? chat.participants.find(p => p.userId !== userA)?.user.displayName : chat.name,
-    imageUrl: chat.type === 'DIRECT' ? chat.participants.find(p => p.userId !== userA)?.user.imageUrl : chat.imageUrl,
+    // Ahora p.user ya estará definido gracias al include anidado
+    name: chat.participants.find(p => p.userId !== userA)?.user.displayName,
+    imageUrl: chat.participants.find(p => p.userId !== userA)?.user.imageUrl,
     createdAt: chat.createdAt,
     otherUsers: chat.participants.find(p => p.userId !== userA)?.user,
     participantIds: chat.participants.map(p => p.userId),
     lastMessageText: chat.messages[0]?.content || null
   };
-
 };
 
 export default findPrivateChat;

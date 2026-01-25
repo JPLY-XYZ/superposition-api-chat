@@ -3,9 +3,11 @@ import prisma from "../../lib/prisma.js";
 //in {?lastSync}, out {conversations[], messages[], messageUpdates[]}
 const sync = async (req, res) => {
   const userId = req.user.id;
-  
+
+  console.log(req.query.lastSync);
   // Si lastSync no viene, usamos fecha 0 (Trae todo el historial)
-  const lastSyncDate = req.query.lastSync ? new Date(req.query.lastSync) : new Date(0);
+  const timestamp = Number(req.query.lastSync);
+  const lastSyncDate = !isNaN(timestamp) ? new Date(timestamp) : new Date(0);
 
   try {
     // 1. CONVERSACIONES
@@ -19,10 +21,10 @@ const sync = async (req, res) => {
       },
       include: {
         participants: {
-          include: { 
-            user: { 
-              select: { id: true, displayName: true, imageUrl: true, publicKey: true } 
-            } 
+          include: {
+            user: {
+              select: { id: true, displayName: true, imageUrl: true, publicKey: true, code: true }
+            }
           }
         }
       }
@@ -47,17 +49,14 @@ const sync = async (req, res) => {
     const messageUpdates = await prisma.messageStatus.findMany({
       where: {
         updatedAt: { gt: lastSyncDate },
-        OR: [
-          // A: Mensajes míos que alguien leyó
-          { message: { senderId: userId } }, 
-          // B: Mensajes de otros que YO leí en otro dispositivo
-          { userId: userId } 
-        ]
+        status: 'READ', // <--- FILTRO: Solo trae confirmaciones de lectura
+        message: {
+          senderId: userId // Solo mensajes enviados por mí
+        }
       },
       select: {
         messageId: true,
-        status: true,
-        userId: true,
+        userId: true, // Quién lo leyó
         updatedAt: true
       }
     });

@@ -5,6 +5,7 @@ import findPrivateChat from "../helpers/chat.js";
 export const createConversation = async (req, res) => {
   const { id, participants, name, imageUrl, type } = req.body;
   const creatorId = req.user.id;
+  const io = req.app.get('socketio');
 
   try {
     //comprobamos que los participantes sean un array
@@ -56,7 +57,14 @@ export const createConversation = async (req, res) => {
       include: { participants: true }
     });
 
-    //Se retorna la conversación creada
+    //se notifica de la creacion de la conversacion a todos los integrantes menos al que la ha creado
+    newConversation.participants.forEach(p => {
+      if (p.userId !== creatorId) {
+        io.to(`user_${p.userId}`).emit("new_conversation", newConversation);
+      }
+    });
+
+    //Se retorna la conversación creada   
     return res.status(201).json(newConversation);
 
   } catch (error) {

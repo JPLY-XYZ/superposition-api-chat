@@ -18,30 +18,38 @@ export const getMyContactCode = async (req, res) => {
 
 //in {code OR id}, out { user } == { id, displayName, imageUrl, publicKey, code }
 export const getUser = async (req, res) => {
-  const { code, id } = req.body;
-
-
   try {
-    //buscamos el usuario por codigo
-    if (code) {
-      const user = await prisma.user.findUnique({
-        where: { code },
-        select: { id: true, displayName: true, imageUrl: true, publicKey: true, code: true }
+    const { code, id } = req.body;
+
+    // VALIDACIÓN BÁSICA
+    if (!code && !id) {
+      return res.status(400).json({ message: "Se requiere ID o Code" });
+    }
+
+    let user = null;
+
+    // 1. Si hay ID, buscamos por ID
+    if (id) {
+      user = await prisma.user.findUnique({
+        where: { id: id }
       });
-    } else if (id) {
-      const user = await prisma.user.findUnique({
-        where: { id },
-        select: { id: true, displayName: true, imageUrl: true, publicKey: true, code: true }
+    }
+    // 2. Si NO hay ID pero hay Code, buscamos por Code
+    else if (code) {
+      user = await prisma.user.findUnique({
+        where: { code: code }
       });
     }
 
-    //si no existe el usuario
-    if (!user) return res.status(404).json({ error: "Usuario no encontrado" });
+    if (!user) {
+      return res.status(404).json({ message: "Usuario no encontrado" });
+    }
 
-    //retornamos el usuario
     res.json(user);
+
   } catch (error) {
-    res.status(500).json({ error: "Error al validar el codigo de contacto" });
+    console.error("Error getUser:", error);
+    res.status(500).json({ error: error.message });
   }
 };
 
@@ -75,5 +83,22 @@ export const updateMe = async (req, res) => {
     res.json(user);
   } catch (error) {
     res.status(500).json({ error: "Error al actualizar el usuario" });
+  }
+};
+
+
+export const upsertPushToken = async (req, res) => {
+  const { pushToken } = req.body;
+
+  try {
+    await prisma.user.update({ // Usamos update, no upsert
+      where: { id: req.user.id },
+      data: { pushToken: pushToken } // update sí usa 'data'
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error al actualizar el push token" });
   }
 };

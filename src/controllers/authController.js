@@ -30,6 +30,7 @@ const register = async (req, res) => {
     //se envia la respuesta al cliente
     res.status(201).json({ message: "Usuario creado", userId: user.id, code: code });
   } catch (error) {
+    console.log(error);
     res.status(400).json({ error: "El email ya está registrado" + error });
   }
 };
@@ -50,8 +51,9 @@ const login = async (req, res) => {
       //Se envia un error al cliente
       res.status(400).json({ error: "Credenciales inválidas" });
     }
-  } catch {
+  } catch (error) {
     //Se envia un error al cliente
+    console.log(error);
     res.status(401).json({ error: "Error al iniciar sesión" });
   }
 

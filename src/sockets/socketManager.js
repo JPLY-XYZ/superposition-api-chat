@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import prisma from '../../lib/prisma.js';
 import findPrivateChat from '../helpers/chat.js';
+import { sendNotification } from '../helpers/notifications.js';
 
 const socketManager = (io) => {
   // 1. Middleware de Autenticación
@@ -129,11 +130,27 @@ const socketManager = (io) => {
         });
 
         // Recorremos los participantes y emitimos el mensaje a cada uno
-        conversation.participants.forEach(participant => {
+        for (const participant of conversation.participants) {
           if (participant.userId !== socket.userId) {
+
+            //obtener el nombre del usuario
+            const participantUserToken = await prisma.user.findUnique({
+              where: { id: participant.userId },
+              select: { pushToken: true }
+            });
+
+            const senderDisplayName = await prisma.user.findUnique({
+              where: { id: participant.userId },
+              select: { displayName: true }
+            });
+
+
             io.to(`user_${participant.userId}`).emit("new_message", newMessage);
+
+            // El bucle se detiene aquí hasta que esta notificación sale
+            await sendNotification(participantUserToken.pushToken, senderDisplayName.displayName + " : " + newMessage.content);
           }
-        });
+        }
         // Confirmación al emisor
         if (ack) ack({ success: true });
 
@@ -143,12 +160,19 @@ const socketManager = (io) => {
     });
 
     // Evento para recibir actualización de estado del mensaje
-    // in { messageId, userId, status } out { success }
-    socket.on("message_status_update", async (data) => {
+    // in { messageId, userId, senderId, status } out { success }
+    socket.on("message_status_update", async (data, ack) => {
       try {
 
+        if (!data.messageId || !data.userId || !data.senderId || !data.status) {
+          console.log("SOCKET: MESSAGE STATUS UPDATE - Faltan campos obligatorios");
+          if (ack) ack({ success: false, error: "Faltan campos obligatorios" });
+          return;
+        }
+
+        console.log("SOCKET: MESSAGE STATUS UPDATE - ", data);
         //actualizamos el estado del mensaje
-        const updatedStatus = await prisma.messageStatus.updateMany({
+        await prisma.messageStatus.updateMany({
           where: {
             messageId: data.messageId,
             userId: data.userId,
@@ -159,8 +183,19 @@ const socketManager = (io) => {
           }
         });
 
+
+
         //avisamos al emisor original que su mensaje ha sido entregado
-        io.to(`user_${data.senderId}`).emit("message_status_changed", { id: data.messageId, status: data.status });
+        io.to(`user_${data.senderId}`).emit("message_status_changed", { messageId: data.messageId, status: data.status });
+        //confirmación al emisor
+
+        const room = io.sockets.adapter.rooms.get(`user_${data.senderId}`);
+        if (!room || room.size === 0) {
+          console.log("El usuario no está conectado, el mensaje no llegará.");
+        } else {
+          console.log(`Enviando a ${room.size} dispositivo(s): user_${data.senderId}: ${data.messageId} = ${data.status}`);
+        }
+        if (ack) ack({ success: true });
       } catch (error) {
         console.error("SOCKET: MESSAGE STATUS UPDATE - ", error);
       }
@@ -189,7 +224,7 @@ const socketManager = (io) => {
             status: { not: 'read' },
             message: { conversationId: conversationId, senderId: { not: socket.userId } }
           },
-          select: { id: true, message: { select: { senderId: true, id: true } } }
+          select: { id: true, messageId: true, message: { select: { senderId: true } } }
         });
 
         //obtenemos los ids de los mensajes
@@ -204,12 +239,15 @@ const socketManager = (io) => {
           });
 
           //avisamos al emisor original que su mensaje ha sido leido
-          statusesToUpdate.forEach(status => {
+          for (const status of statusesToUpdate) {
+
+            console.log(status);
+
             socket.to(`user_${status.message.senderId}`).emit("message_status_changed", {
-              messageId: status.message.id,
+              messageId: status.messageId,
               status: 'read'
             });
-          });
+          }
 
         }
 

@@ -10,7 +10,7 @@ services:
       - .env
     depends_on:
       - db
-    command: sh -c "npx prisma migrate deploy && node src/app.js"      
+    command: sh -c "npx prisma db push && node src/app.js"      
     restart: always
 
   db:

@@ -11,7 +11,8 @@ model User {
   id            String          @id @default(uuid())
   email         String          @unique
   displayName   String?
-  imageUrl     String?
+  imageUrl      String?
+  pushToken     String?
   password      String
   publicKey     String
   code          String          @unique
@@ -25,7 +26,7 @@ model Conversation {
   id           String        @id @default(uuid())
   type         ChatType      @default(DIRECT)
   name         String?
-  imageUrl    String?
+  imageUrl     String?
   createdAt    DateTime      @default(now())
   messages     Message[]
   participants Participant[]

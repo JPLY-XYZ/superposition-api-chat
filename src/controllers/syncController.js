@@ -30,41 +30,56 @@ const sync = async (req, res) => {
       }
     });
 
-    // 2. MENSAJES
-    // Mensajes nuevos en mis conversaciones
+    // 2. MENSAJES (Server)
     const messages = await prisma.message.findMany({
       where: {
         createdAt: { gt: lastSyncDate },
         conversation: {
-          participants: {
-            some: { userId: userId }
-          }
+          participants: { some: { userId: userId } }
         }
       },
-      orderBy: { createdAt: 'asc' } // Importante para que el cliente los pinte en orden
+      include: {
+        // CAMBIO AQUÍ: Usamos 'statuses' que es el nombre real en tu esquema
+        statuses: true
+      },
+      orderBy: { createdAt: 'asc' }
     });
 
-    // 3. ACTUALIZACIONES DE ESTADO (Ticks)
-    // Mensajes que cambiaron de estado (ej: a "READ") recientemente
+    // MAPEAMOS LOS MENSAJES
+    const formattedMessages = messages.map(msg => {
+      // Buscamos si hay un estado puesto por el RECEPTOR (alguien que no soy yo)
+      const remoteStatus = msg.statuses.find(s => s.userId !== userId);
+
+      return {
+        ...msg,
+        // Lógica: 
+        // Si yo lo envié: 'read' > 'received' > 'sent' (según rastro del otro)
+        // Si yo lo recibí: 'received' por defecto al descargar
+        status: msg.senderId === userId
+          ? (remoteStatus ? remoteStatus.status.toLowerCase() : 'sent')
+          : 'received',
+        statuses: undefined // Limpiamos para no enviar datos extra al móvil
+      };
+    });
+
+    // 3. ACTUALIZACIONES (Para mensajes antiguos que cambiaron de estado)
     const messageUpdates = await prisma.messageStatus.findMany({
       where: {
         updatedAt: { gt: lastSyncDate },
-        status: 'READ', // <--- FILTRO: Solo trae confirmaciones de lectura
-        message: {
-          senderId: userId // Solo mensajes enviados por mí
-        }
+        status: { in: ['RECEIVED', 'READ'] },
+        message: { senderId: userId }
       },
       select: {
         messageId: true,
-        userId: true, // Quién lo leyó
+        status: true,
         updatedAt: true
       }
     });
 
     return res.json({
       conversations,
-      messages,
-      messageUpdates: messageUpdates
+      messages: formattedMessages,
+      messageUpdates
     });
 
   } catch (error) {

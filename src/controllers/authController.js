@@ -37,7 +37,7 @@ const register = async (req, res) => {
 
 //in {email, password}, out { token, userId }
 const login = async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, publicKey } = req.body;
 
   try {
     const user = await prisma.user.findUnique({ where: { email } });
@@ -45,6 +45,11 @@ const login = async (req, res) => {
     if (user && await bcrypt.compare(password, user.password)) {
       //Creamos un nuevo token
       const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+      //actualizar publicKey
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { publicKey }
+      });
       //Se envia el token al cliente
       res.json({ token, userId: user.id });
     } else {

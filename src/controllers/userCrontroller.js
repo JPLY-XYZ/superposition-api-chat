@@ -102,3 +102,36 @@ export const upsertPushToken = async (req, res) => {
     res.status(500).json({ error: "Error al actualizar el push token" });
   }
 };
+
+
+export const updateNotificationsForMe = async (req, res) => {
+  const { notifications } = req.body;
+
+  try {
+    //actualizamos el usuario
+    const user = await prisma.user.update({
+      where: { id: req.user.id },
+      data: { notifications }
+    });
+    //retornamos el usuario
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: "Error al actualizar el usuario" });
+  }
+};
+
+export const getNotificationsForMe = async (req, res) => {
+  try {
+    //buscamos el usuario
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { notifications: true }
+    });
+    //retornamos el usuario
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: "Error al obtener perfil" });
+  }
+};
+
+

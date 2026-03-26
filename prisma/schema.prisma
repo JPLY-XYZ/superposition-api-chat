@@ -17,6 +17,7 @@ model User {
   publicKey     String
   code          String          @unique
   lastSeen      DateTime        @default(now())
+  notifications Boolean         @default(true)
   sentMessages  Message[]
   statusUpdates MessageStatus[]
   participants  Participant[]

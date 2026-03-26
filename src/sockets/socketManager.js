@@ -136,7 +136,7 @@ const socketManager = (io) => {
             //obtener el nombre del usuario
             const participantUserToken = await prisma.user.findUnique({
               where: { id: participant.userId },
-              select: { pushToken: true }
+              select: { pushToken: true, notifications: true }
             });
 
             const senderDisplayName = await prisma.user.findUnique({
@@ -144,11 +144,11 @@ const socketManager = (io) => {
               select: { displayName: true }
             });
 
-
             io.to(`user_${participant.userId}`).emit("new_message", newMessage);
-
-            // El bucle se detiene aquí hasta que esta notificación sale
-            await sendNotification(participantUserToken.pushToken,  "Tienes un nuevo mensaje de: " +  senderDisplayName.displayName);
+            if (participantUserToken.notifications) {
+              //El bucle se detiene aquí hasta que esta notificación sale
+              await sendNotification(participantUserToken.pushToken, "Tienes un nuevo mensaje de: " + senderDisplayName.displayName);
+            }
           }
         }
         // Confirmación al emisor

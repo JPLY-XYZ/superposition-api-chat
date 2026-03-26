@@ -1,16 +1,18 @@
 version: '3.8'
 
 services:
-
   app:
-    build: .             
+    build: .
     ports:
-      - "3000:3000"      
+      - "3000:3000"
     env_file:
       - .env
     depends_on:
       - db
-    command: sh -c "npx prisma db push && node src/app.js"      
+    # IMPORTANTE: Mapeamos la carpeta local al contenedor
+    volumes:
+      - ./uploads:/app/uploads
+    command: sh -c "npx prisma db push && node src/app.js"
     restart: always
 
   db:
@@ -23,6 +25,6 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-   
+
 volumes:
   pgdata:

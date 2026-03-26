@@ -27,7 +27,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/conversations', conversationsRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/sync', syncRoutes);
-app.use('/uploads', express.static('public/uploads'));
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.get('/api/status', (req, res) => {
   res.json({ status: 'health' });
 });

@@ -8,6 +8,10 @@ cloudinary.config({
 });
 
 export const uploadFile = async (req, res) => {
+
+
+    console.log('Archivo recibido:', req.file);
+    
     try {
         if (!req.file) {
             return res.status(400).json({ error: 'No hay archivo' });

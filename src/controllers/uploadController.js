@@ -1,17 +1,38 @@
+import { v2 as cloudinary } from 'cloudinary';
+
+// Configuración (puedes mover esto a un archivo de config separado)
+cloudinary.config({ 
+    cloud_name: process.env.CLOUDINARY_NAME, 
+    api_key: process.env.CLOUDINARY_KEY, 
+    api_secret: CLOUDINARY_SECRET 
+});
+
 export const uploadFile = async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ error: 'No hay archivo' });
         }
 
-        // Construimos la URL. Ajusta el puerto si es necesario.
-        const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+        // Subida a Cloudinary usando el buffer del archivo
+        const uploadResult = await new Promise((resolve, reject) => {
+            const uploadStream = cloudinary.uploader.upload_stream(
+                { resource_type: 'auto', folder: 'uploads' },
+                (error, result) => {
+                    if (error) reject(error);
+                    else resolve(result);
+                }
+            );
+            uploadStream.end(req.file.buffer);
+        });
 
         res.json({ 
-            url: fileUrl,
-            type: req.file.mimetype.startsWith('image/') ? 'image' : 'file'
+            url: uploadResult.secure_url,
+            type: uploadResult.resource_type === 'image' ? 'image' : 'file',
+            public_id: uploadResult.public_id
         });
+        
     } catch (error) {
-        res.status(500).json({ error: 'Error al procesar subida' });
+        console.error(error);
+        res.status(500).json({ error: 'Error al subir a Cloudinary' });
     }
 };
